@@ -89,16 +89,88 @@ The Account API allows you to manage your Zoom account settings and profile.
 
         "chat": `# Zoom Chat API
 
-The Chat API allows you to manage Zoom Chat channels and messages.
+The Chat API allows you to manage Zoom Chat channels and messages, read message history, search conversations, and browse channel membership.
 
-## Endpoints
+## Channel Management
 
-- GET /chat/users/me/channels - List channels
+- GET /chat/users/me/channels - List channels the user belongs to
 - POST /chat/users/me/channels - Create a channel
-- GET /chat/channels/{channelId} - Get a channel
+- GET /chat/channels/{channelId} - Get a channel's information
 - PATCH /chat/channels/{channelId} - Update a channel
 - DELETE /chat/channels/{channelId} - Delete a channel
-- POST /chat/users/me/channels/{channelId}/messages - Send a message to a channel`,
+
+## Messages
+
+- POST /chat/users/me/channels/{channelId}/messages - Send a message to a channel
+- GET /chat/users/me/messages?to_channel={channelId} - List messages in a channel (paginated, date-scoped)
+- GET /chat/users/me/messages?to_contact={email} - List direct messages with a contact (paginated, date-scoped)
+
+## Channel Members
+
+- GET /chat/users/me/channels/{channelId}/members - List members of a channel
+
+## Search & Threads (Client-Side)
+
+- search_channel_messages - Search messages by keyword within a channel (client-side filtering)
+- get_message_replies - Get all replies in a message thread by parent message ID
+- get_chat_message - Look up a specific message by its ID
+
+## Required Scopes
+
+- chat_message:read - Read messages in channels and DMs
+- chat_channel:read - List channel members
+- chat_message:write - Send messages`,
+
+        "team-chat": `# Zoom Team Chat - Read & Query Tools
+
+Tools for reading and searching Zoom Team Chat history. All tools operate as the authenticated user and only access channels the user belongs to.
+
+## Reading Messages
+
+### list_channel_messages
+Read message history from a channel. Messages are scoped to a single date (defaults to today).
+- Required: channel_id
+- Optional: date (YYYY-MM-DD), page_size (1-50), next_page_token, include_deleted_and_edited_message
+- Use next_page_token to paginate through a full day's history
+
+### list_dm_messages
+Read direct message history with a specific contact.
+- Required: to_contact (email address)
+- Optional: date, page_size, next_page_token, include_deleted_and_edited_message
+
+## Searching
+
+### search_channel_messages
+Search for messages containing a keyword in a channel. Fetches multiple pages and filters client-side.
+- Required: channel_id, query (search term)
+- Optional: date, max_pages (1-10, default 5)
+- Each page fetches up to 50 messages
+
+## Threads
+
+### get_message_replies
+Read all replies in a message thread given the parent message ID.
+- Required: channel_id, parent_message_id
+- Optional: date, max_pages (1-10, default 5)
+
+### get_chat_message
+Look up a specific message by its ID.
+- Required: channel_id, message_id, date
+
+## Channel Members
+
+### list_channel_members
+List all members of a channel with their name, email, and role.
+- Required: channel_id
+- Optional: page_size (1-100), next_page_token
+
+## Usage Patterns
+
+1. Start with list_channels to discover available channels
+2. Use list_channel_messages to read recent history
+3. Use search_channel_messages to find specific topics
+4. Use get_message_replies to read threaded conversations
+5. Use list_channel_members to see who is in a channel`,
 
         "phone": `# Zoom Phone API
 
@@ -145,6 +217,7 @@ Available categories:
 - webinars
 - account
 - chat
+- team-chat
 - phone
 - recordings
 - webhooks
