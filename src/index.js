@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-    import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-    import { server } from './server.js';
-    import dotenv from 'dotenv';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { server } from './server.js';
+import { ensureTokens } from './utils/auth.js';
+import dotenv from 'dotenv';
 
-    // Load environment variables
-    dotenv.config();
+dotenv.config();
 
-    console.error('Starting Zoom API MCP server...');
+console.error('Starting Zoom MCP server...');
 
-    // Start receiving messages on stdin and sending messages on stdout
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
+await ensureTokens();
+
+const transport = new StdioServerTransport();
+await server.connect(transport);

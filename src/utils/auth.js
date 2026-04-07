@@ -1,6 +1,9 @@
 import axios from 'axios';
+import http from 'http';
+import { URL } from 'url';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
+import { exec } from 'child_process';
 
 let accessToken = null;
 let tokenExpiry = 0;
@@ -111,3 +114,84 @@ export const getAccessToken = async () => {
     );
   }
 };
+
+const OAUTH_SCOPES = [
+  'team_chat:read:list_user_messages',
+  'team_chat:read:user_message',
+  'team_chat:read:thread_message',
+  'team_chat:read:list_user_channels',
+  'team_chat:read:list_members',
+  'team_chat:read:channel',
+  'team_chat:write:user_message',
+  'message:write:content'
+].join(' ');
+
+function openBrowser(url) {
+  const cmd = process.platform === 'win32' ? `start "" "${url}"`
+    : process.platform === 'darwin' ? `open "${url}"`
+    : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}
+
+export async function ensureTokens() {
+  if (process.env.ZOOM_ACCOUNT_ID) return;
+
+  const stored = loadTokens();
+  if (stored?.refresh_token) return;
+
+  const clientId = process.env.ZOOM_CLIENT_ID;
+  if (!clientId) return;
+
+  const PORT = 4200;
+  const redirectUri = `http://localhost:${PORT}/oauth/callback`;
+  const authorizeUrl = `https://zoom.us/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(OAUTH_SCOPES)}`;
+
+  console.error('\n=== Zoom Authorization Required ===');
+  console.error('Opening your browser to authorize with Zoom...');
+  console.error(`If it doesn't open, visit: ${authorizeUrl}\n`);
+
+  openBrowser(authorizeUrl);
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      srv.close();
+      reject(new Error('OAuth authorization timed out after 5 minutes.'));
+    }, 300000);
+
+    const srv = http.createServer(async (req, res) => {
+      const url = new URL(req.url, `http://localhost:${PORT}`);
+      if (url.pathname !== '/oauth/callback') {
+        res.writeHead(302, { 'Location': authorizeUrl });
+        res.end();
+        return;
+      }
+
+      const code = url.searchParams.get('code');
+      if (!code) {
+        res.writeHead(400, { 'Content-Type': 'text/html' });
+        res.end('<h1>Authorization failed</h1><p>No code received.</p>');
+        return;
+      }
+
+      try {
+        await exchangeCodeForTokens(code, redirectUri);
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<h1>Zoom authorized!</h1><p>You can close this tab. The Zoom MCP tools are now ready in Claude.</p>');
+        console.error('Zoom authorization successful!');
+        clearTimeout(timeout);
+        srv.close();
+        resolve();
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        res.end(`<h1>Authorization failed</h1><pre>${err.message}</pre>`);
+        clearTimeout(timeout);
+        srv.close();
+        reject(err);
+      }
+    });
+
+    srv.listen(PORT, () => {
+      console.error(`Waiting for authorization on port ${PORT}...`);
+    });
+  });
+}
