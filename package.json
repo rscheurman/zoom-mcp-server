@@ -10,6 +10,7 @@
       "scripts": {
         "start": "node src/index.js",
         "dev": "node --watch src/index.js",
+        "setup": "node src/setup.js",
         "inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
       },
       "dependencies": {

@@ -94,15 +94,35 @@ export const chatTools = [
   },
   {
     name: "send_channel_message",
-    description: "Send a message to a channel",
+    description: "Send a message to a channel the user belongs to",
     schema: {
       channel_id: z.string().describe("The channel ID"),
       message: z.string().describe("Message content")
     },
     handler: async ({ channel_id, message }) => {
       try {
-        const response = await zoomApi.post(`/chat/users/me/channels/${channel_id}/messages`, {
-          message
+        const response = await zoomApi.post('/chat/users/me/messages', {
+          message,
+          to_channel: channel_id
+        });
+        return handleApiResponse(response);
+      } catch (error) {
+        return handleApiError(error);
+      }
+    }
+  },
+  {
+    name: "send_direct_message",
+    description: "Send a direct message to a Zoom contact by email",
+    schema: {
+      to_contact: z.string().describe("Email address of the contact to message"),
+      message: z.string().describe("Message content")
+    },
+    handler: async ({ to_contact, message }) => {
+      try {
+        const response = await zoomApi.post('/chat/users/me/messages', {
+          message,
+          to_contact
         });
         return handleApiResponse(response);
       } catch (error) {
