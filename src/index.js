@@ -6,7 +6,7 @@
     // Load environment variables
     dotenv.config();
 
-    console.log('Starting Zoom API MCP server...');
+    console.error('Starting Zoom API MCP server...');
 
     // Start receiving messages on stdin and sending messages on stdout
     const transport = new StdioServerTransport();
