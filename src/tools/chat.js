@@ -359,5 +359,66 @@ export const chatTools = [
         return handleApiError(error);
       }
     }
+  },
+  {
+    name: "find_user",
+    description: "Find a Zoom user by name. Searches across the authenticated user's channels to find a person's email, name, and role. Use this when you know someone's name but need their email for other tools like send_direct_message or list_dm_messages.",
+    schema: {
+      name: z.string().describe("The person's name to search for (first name, last name, or full name - case insensitive)")
+    },
+    handler: async ({ name }) => {
+      try {
+        const lowerName = name.toLowerCase();
+        const seen = new Set();
+        const matches = [];
+        let nextToken = undefined;
+
+        const channelsResponse = await zoomApi.get('/chat/users/me/channels', { params: { page_size: 50 } });
+        const channels = channelsResponse.data.channels || [];
+
+        for (const channel of channels.slice(0, 10)) {
+          try {
+            const membersResponse = await zoomApi.get(`/chat/users/me/channels/${channel.id}/members`, {
+              params: { page_size: 100 }
+            });
+            const members = membersResponse.data.members || [];
+            for (const m of members) {
+              if (seen.has(m.email)) continue;
+              seen.add(m.email);
+              const fullName = `${m.first_name || ''} ${m.last_name || ''}`.toLowerCase();
+              if (fullName.includes(lowerName) ||
+                  (m.first_name || '').toLowerCase().includes(lowerName) ||
+                  (m.last_name || '').toLowerCase().includes(lowerName)) {
+                matches.push({
+                  first_name: m.first_name,
+                  last_name: m.last_name,
+                  email: m.email,
+                  id: m.id,
+                  role: m.role
+                });
+              }
+            }
+          } catch {
+            continue;
+          }
+          if (matches.length >= 10) break;
+        }
+
+        const result = {
+          query: name,
+          total_matches: matches.length,
+          users: matches
+        };
+
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify(result, null, 2)
+          }]
+        };
+      } catch (error) {
+        return handleApiError(error);
+      }
+    }
   }
 ];
